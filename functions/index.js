@@ -15,10 +15,27 @@ exports.submitHealthData = functions.https.onRequest(async (req, res) => {
     return res.status(405).send('Method Not Allowed');
   }
 
-  // Expect payload: { heart_rate: string|number }
+  // Expect payload: { heart_rate: string|number, resting_hr: string|number, latest_hr: string|number }
   let heartRate = req.body.heart_rate;
   if (typeof heartRate === 'string') {
     heartRate = parseFloat(heartRate);
+  }
+  let restingHr = req.body.resting_hr;
+  if (typeof restingHr === 'string') {
+    restingHr = parseFloat(restingHr);
+  }
+  if (typeof restingHr !== 'number' || isNaN(restingHr)) {
+    console.error('Invalid resting_hr:', req.body.resting_hr);
+    return res.status(400).send('Missing or invalid resting_hr');
+  }
+  // Parse and validate the most recent heart rate sample
+  let latestHr = req.body.latest_hr;
+  if (typeof latestHr === 'string') {
+    latestHr = parseFloat(latestHr);
+  }
+  if (typeof latestHr !== 'number' || isNaN(latestHr)) {
+    console.error('Invalid latest_hr:', req.body.latest_hr);
+    return res.status(400).send('Missing or invalid latest_hr');
   }
   if (typeof heartRate !== 'number' || isNaN(heartRate)) {
     console.error('Invalid heart_rate:', req.body.heart_rate);
@@ -32,12 +49,16 @@ exports.submitHealthData = functions.https.onRequest(async (req, res) => {
     // Write a new history entry with ISO timestamp
     const historyRef = await db.collection('apple-health').add({
       heart_rate: heartRate,
+      resting_hr: restingHr,
+      latest_hr: latestHr,
       timestamp: nowIso
     });
 
     // Overwrite the 'latest' document with ISO timestamp
     await db.collection('apple-health').doc('latest').set({
       heart_rate: heartRate,
+      resting_hr: restingHr,
+      latest_hr: latestHr,
       timestamp: nowIso
     });
 
